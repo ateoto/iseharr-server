@@ -1,4 +1,4 @@
-var io = require('socket.io').listen(9000);
+var io = require('socket.io').listen(8080);
 var pc = require('./character.js');
 
 
