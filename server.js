@@ -3,7 +3,7 @@ var pc = require('./character.js');
 var bison = require('bison');
 var uuid = require('node-uuid')
 
-var wss = new WebSocketServer({port: 8080});
+var wss = new WebSocketServer({port: 8080, path: '/socket'});
 var users = [];
 var current_users = 0;
 var max_users = 4;
