@@ -1,55 +1,64 @@
-var io = require('socket.io').listen(8080);
+var WebSocketServer = require('ws').Server;
 var pc = require('./character.js');
 var bison = require('bison');
+var uuid = require('node-uuid')
 
-
-//io.set('log level', 1);
-
+var wss = new WebSocketServer({port: 8080});
 var users = [];
-
+var current_users = 0;
+var max_users = 4;
 var last_tick = Date.now();
 
 tick = function() {
     var current_tick = Date.now();
-    // Currently, nothing.
+    // Loop through the Users, determine proximity to NPCs and each other.
+    // Process events and other things.
+    // Not really sure.
+    for (var i = 0; i < current_users; i++) {}
     last_tick = current_tick;
 }
 
-setInterval(tick, 10);
+setInterval(tick, 10); // This runs at 100 Ticks per second. Not sure if it can keep up at this point.
 
-var main_socket = io.of('/socket').on('connection', function(socket) {
-    socket.on('join', function(username, callback) {
-        if (users.indexOf(username) < 0) {
-            socket.username = username;
-            socket.pc = new pc.PlayerCharacter(socket.username);
-            users.push(socket.pc);
-            socket.broadcast.emit('user-joined', { pc: socket.pc });
-            console.log('User Joined: ' + socket.pc.username);
-            callback(true, users);
-        } else {
-            callback(false);
+wss.on('connection', function(ws) {
+    if (current_users >= max_users) {
+        ws.send(JSON.stringify({ 'type': 'connect-fail', 'data': {'reason': 'Server Full'}}));
+        ws.close();
+    }
+
+    ws.on('message', function(message) {
+        // This is where we determine what kind of message it is. If it's a connect message,
+        // add the user to the list.
+
+        var msg = JSON.parse(message);
+        if (msg.type === 'connect') {
+            var user = new pc.PlayerCharacter(msg.data.username);
+            user.position.x = msg.data.position.x;
+            user.position.y = msg.data.position.y;
+            user.socket = ws;
+            user.uuid = uuid.v4();
+            users.push(user);
+            current_users += 1;
+            user.socket.send(JSON.stringify({'type': 'connect-ack', 'data':{'uuid':user.uuid}}));
+            //console.log(user.username, 'joined.');
+        }
+
+        if (msg.type === 'chat') {
+            for (var i = 0; i < current_users; i++) {
+                users[i].socket.send(JSON.stringify(msg));
+            }
         }
     });
 
-    socket.on('pc-move', function(coordinates) {
-        if (socket.pc && coordinates) {
-            socket.pc.position.x = coordinates.x;
-            socket.pc.position.y = coordinates.y;
-            main_socket.emit('pc-move-ack', { pc: socket.pc });
-        }
-    });
-
-    socket.on('chat', function(message) {
-        if (socket.username && message) {
-            socket.broadcast.emit('chat', { sender: socket.username, message: message });
-        }
-    });
-
-    socket.on('disconnect', function() {
-        if (socket.username) {
-            users.splice(users.indexOf(socket.pc), 1);
-            console.log('User left: ' + socket.pc.username);
-            main_socket.emit('user-left', { pc: socket.pc });
+    ws.on('close', function(){
+        // I guess for now loop through the users and see if thier sockets are the same as ws.
+        for (var i = 0; i < current_users; i++) {
+            if (users[i].socket == ws) {
+                user = users.splice(i, 1);
+                current_users -= 1;
+                //console.log(user[0].username, 'left.');
+                break;
+            }
         }
     });
 });
