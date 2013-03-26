@@ -4,7 +4,7 @@ exports.PlayerCharacter = function(username) {
 	this.username = username;
 	this.health = 100;
 	this.is_moving = false;
-	this.facing =  new point.Point(0,-1);
+	this.direction =  new point.Point(0,1);
 	this.position = new point.Point(576,280);
 }
 
